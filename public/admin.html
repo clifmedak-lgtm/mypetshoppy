@@ -3,58 +3,365 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>PetHaven Master Control</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin | MyPetshoppy</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        .admin-nav-btn { color: #64748b; }
+        .admin-nav-btn:hover { background: #f8fafc; color: #0f172a; }
+        .admin-nav-btn.active { background: linear-gradient(90deg, #ecfdf5, #fff1f2); color: #059669; font-weight: 600; }
+        .stat-card { transition: transform 150ms ease, box-shadow 150ms ease; cursor: pointer; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -8px rgba(15, 23, 42, 0.1); }
+        .row-hover:hover { background: #f8fafc; }
+        .avatar { display: inline-flex; align-items: center; justify-content: center; font-weight: 600; border-radius: 9999px; flex-shrink: 0; }
+    </style>
 </head>
 
-<body class="bg-slate-900 text-white font-sans">
-    <div class="min-h-screen flex">
-        <aside class="w-72 bg-black/40 border-r border-white/10 p-10 flex flex-col justify-between">
-            <div>
-                <h1 class="text-2xl font-black text-emerald-400 mb-12">PetHaven Admin</h1>
-                <nav class="space-y-6 text-slate-400 font-bold">
-                    <button onclick="loadSection('dashboard')" class="block hover:text-white transition">Platform
-                        Dashboard</button>
-                    <button onclick="loadSection('breeders')" class="block hover:text-white transition">Breeder
-                        Management</button>
-                    <button onclick="loadSection('orders')" class="block hover:text-white transition">Paid
-                        Transactions</button>
+<body class="bg-slate-50">
+    <div class="min-h-screen">
+        <div class="md:hidden flex items-center justify-between bg-white/80 backdrop-blur shadow-sm px-4 py-3 sticky top-0 z-40 border-b border-slate-100">
+            <span class="text-xl font-extrabold"><span class="text-rose-500">My</span><span class="text-emerald-600">Petshoppy</span></span>
+            <button id="admin-mobile-menu-button" class="rounded-lg border border-slate-200 p-2 text-slate-600">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
+        </div>
+        <div id="admin-sidebar-overlay" class="hidden md:hidden fixed inset-0 bg-black/40 z-40"></div>
+
+        <div class="flex">
+            <div id="admin-sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white p-6 min-h-screen transform -translate-x-full transition-transform duration-200 md:static md:translate-x-0 md:border-r md:border-slate-100">
+                <span class="hidden md:block text-lg font-extrabold mb-10"><span class="text-rose-500">My</span><span class="text-emerald-600">Petshoppy</span> <span class="text-slate-400 font-medium text-sm">Admin</span></span>
+                <nav class="space-y-1">
+                    <button data-nav="dashboard" onclick="showSection('dashboard')" class="admin-nav-btn w-full text-left px-4 py-2.5 rounded-xl flex items-center gap-3">📊 <span>Dashboard</span></button>
+                    <button data-nav="customers" onclick="showSection('customers')" class="admin-nav-btn w-full text-left px-4 py-2.5 rounded-xl flex items-center gap-3">👥 <span>Customers</span></button>
+                    <button data-nav="vendors" onclick="showSection('vendors')" class="admin-nav-btn w-full text-left px-4 py-2.5 rounded-xl flex items-center gap-3">🏪 <span>Sellers</span></button>
+                    <button data-nav="products" onclick="showSection('products')" class="admin-nav-btn w-full text-left px-4 py-2.5 rounded-xl flex items-center gap-3">🐾 <span>Listings</span></button>
+                    <button data-nav="orders" onclick="showSection('orders')" class="admin-nav-btn w-full text-left px-4 py-2.5 rounded-xl flex items-center gap-3">📋 <span>Orders</span></button>
+                    <button data-nav="coupons" onclick="showSection('coupons')" class="admin-nav-btn w-full text-left px-4 py-2.5 rounded-xl flex items-center gap-3">🏷️ <span>Coupons</span></button>
+                    <div class="pt-4 mt-4 border-t border-slate-100">
+                        <button onclick="adminLogout()" class="w-full text-left px-4 py-2.5 rounded-xl hover:bg-red-50 text-red-600 flex items-center gap-3">🚪 <span>Logout</span></button>
+                    </div>
                 </nav>
             </div>
-            <button onclick="adminLogout()" class="text-red-400 font-bold uppercase tracking-widest text-xs">Shutdown
-                Console</button>
-        </aside>
 
-        <main class="flex-1 p-16">
-            <div id="admin-login-area" class="max-w-md mx-auto mt-20">
-                <input type="password" id="admin-key" placeholder="Enter Admin Secret"
-                    class="w-full p-5 bg-white/5 border border-white/10 rounded-3xl mb-4 outline-none focus:border-emerald-400">
-                <button onclick="adminLogin()"
-                    class="w-full bg-emerald-600 p-5 rounded-3xl font-black text-lg shadow-xl shadow-emerald-500/20 hover:bg-emerald-500 transition-colors">Access
-                    Console</button>
-            </div>
-
-            <div id="admin-dashboard" class="hidden">
-                <h2 class="text-4xl font-black mb-10">Platform Live Stats</h2>
-                <div class="grid grid-cols-4 gap-8">
-                    <div class="bg-white/5 p-8 rounded-[2rem] border border-white/10">
-                        <p class="text-slate-500 text-xs font-bold uppercase mb-2">Net Platform Earnings</p>
-                        <p id="stat-revenue" class="text-3xl font-black text-emerald-400">0 CFA</p>
+            <div class="flex-1 p-4 sm:p-6 md:p-10 min-w-0">
+                <div id="login-section" class="max-w-md mx-auto mt-8 md:mt-24">
+                    <div class="text-center mb-6">
+                        <span class="text-2xl font-extrabold"><span class="text-rose-500">My</span><span class="text-emerald-600">Petshoppy</span></span>
+                        <h1 class="text-xl font-bold text-slate-900 mt-2">Admin Login</h1>
                     </div>
-                    <div class="bg-white/5 p-8 rounded-[2rem] border border-white/10">
-                        <p class="text-slate-500 text-xs font-bold uppercase mb-2">Breeder Payouts Pending</p>
-                        <p id="stat-payouts" class="text-3xl font-black text-amber-400">0 CFA</p>
+                    <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-100 shadow-sm">
+                        <input type="password" id="admin-secret" placeholder="Admin password" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl mb-4 outline-none focus:border-emerald-400">
+                        <button onclick="adminLogin()" class="w-full bg-emerald-600 text-white py-2.5 rounded-xl font-medium hover:bg-emerald-700">Login</button>
+                        <p id="admin-login-status" class="text-sm text-red-600 mt-3"></p>
                     </div>
                 </div>
 
-                <div class="mt-16 bg-white/5 rounded-[3rem] p-10 border border-white/10">
-                    <h3 class="text-xl font-bold mb-8">Active Breeder Payouts</h3>
-                    <div id="admin-breeder-list" class="space-y-4"></div>
+                <div id="dashboard" class="hidden">
+                    <div id="section-dashboard">
+                        <h2 class="text-2xl font-bold text-slate-900">Dashboard</h2>
+                        <p class="text-slate-500 mb-8">Tap any card to see the details.</p>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
+                            <div onclick="showSection('customers')" class="stat-card bg-white p-6 rounded-2xl border border-slate-100"><p class="text-slate-500 text-sm">Customers</p><p class="text-2xl font-bold text-slate-900 mt-1" id="stat-users">0</p></div>
+                            <div onclick="showSection('vendors')" class="stat-card bg-white p-6 rounded-2xl border border-slate-100"><p class="text-slate-500 text-sm">Sellers</p><p class="text-2xl font-bold text-slate-900 mt-1" id="stat-vendors">0</p></div>
+                            <div onclick="showSection('products')" class="stat-card bg-white p-6 rounded-2xl border border-slate-100"><p class="text-slate-500 text-sm">Listings</p><p class="text-2xl font-bold text-slate-900 mt-1" id="stat-products">0</p></div>
+                            <div onclick="showSection('orders')" class="stat-card bg-white p-6 rounded-2xl border border-slate-100"><p class="text-slate-500 text-sm">Orders (paid)</p><p class="text-2xl font-bold text-slate-900 mt-1" id="stat-orders">0</p></div>
+                            <div onclick="showSection('orders')" class="stat-card bg-white p-6 rounded-2xl border border-slate-100"><p class="text-slate-500 text-sm">Total sales (GMV)</p><p class="text-2xl font-bold text-slate-900 mt-1" id="stat-gmv">0 CFA</p></div>
+                            <div onclick="showSection('orders')" class="stat-card bg-gradient-to-br from-rose-500 to-emerald-600 p-6 rounded-2xl"><p class="text-white/80 text-sm">Platform revenue</p><p class="text-2xl font-bold text-white mt-1" id="stat-revenue">0 CFA</p></div>
+                        </div>
+                    </div>
+
+                    <div id="section-customers" class="hidden">
+                        <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+                            <h2 class="text-2xl font-bold text-slate-900">Customers</h2>
+                            <input type="search" id="admin-customer-search" placeholder="Search customers..." class="px-4 py-2.5 border border-slate-200 rounded-xl w-64 outline-none focus:border-emerald-400 bg-white">
+                        </div>
+                        <div id="admin-customers-list" class="bg-white rounded-2xl border border-slate-100 divide-y divide-slate-100 overflow-hidden">Loading...</div>
+                    </div>
+
+                    <div id="section-vendors" class="hidden">
+                        <h2 class="text-2xl font-bold text-slate-900 mb-6">Sellers</h2>
+                        <div id="vendors-list" class="bg-white rounded-2xl border border-slate-100 divide-y divide-slate-100 overflow-hidden">Loading...</div>
+                    </div>
+
+                    <div id="section-products" class="hidden">
+                        <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+                            <h2 class="text-2xl font-bold text-slate-900">Listings</h2>
+                            <input type="search" id="admin-product-search" placeholder="Search listings..." class="px-4 py-2.5 border border-slate-200 rounded-xl w-64 outline-none focus:border-emerald-400 bg-white">
+                        </div>
+                        <div id="admin-products-list" class="bg-white rounded-2xl border border-slate-100 divide-y divide-slate-100 overflow-hidden">Loading...</div>
+                    </div>
+
+                    <div id="section-orders" class="hidden">
+                        <h2 class="text-2xl font-bold text-slate-900 mb-6">Orders</h2>
+                        <div id="admin-orders-list" class="space-y-3">Loading...</div>
+                    </div>
+
+                    <div id="section-coupons" class="hidden">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-slate-900">Coupons</h2>
+                            <button onclick="document.getElementById('coupon-form').classList.toggle('hidden')" class="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-emerald-700">+ New Coupon</button>
+                        </div>
+                        <div id="coupon-form" class="hidden bg-white p-6 rounded-2xl border border-slate-100 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <input type="text" id="coupon-code" placeholder="CODE (e.g. WELCOME10)" class="px-4 py-2.5 border border-slate-200 rounded-xl outline-none focus:border-emerald-400">
+                            <select id="coupon-type" class="px-4 py-2.5 border border-slate-200 rounded-xl outline-none focus:border-emerald-400">
+                                <option value="PERCENT">Percent off</option>
+                                <option value="FIXED">Fixed amount off (CFA)</option>
+                            </select>
+                            <input type="number" id="coupon-value" placeholder="Value (e.g. 10)" class="px-4 py-2.5 border border-slate-200 rounded-xl outline-none focus:border-emerald-400">
+                            <input type="number" id="coupon-max-uses" placeholder="Max uses (blank = unlimited)" class="px-4 py-2.5 border border-slate-200 rounded-xl outline-none focus:border-emerald-400">
+                            <input type="number" id="coupon-min-order" placeholder="Minimum order (CFA, optional)" class="px-4 py-2.5 border border-slate-200 rounded-xl outline-none focus:border-emerald-400">
+                            <input type="number" id="coupon-expires-days" placeholder="Expires in days (blank = never)" class="px-4 py-2.5 border border-slate-200 rounded-xl outline-none focus:border-emerald-400">
+                            <button onclick="createCoupon()" class="sm:col-span-2 bg-emerald-600 text-white py-2.5 rounded-xl font-medium hover:bg-emerald-700">Create Coupon</button>
+                            <p id="coupon-form-status" class="sm:col-span-2 text-sm"></p>
+                        </div>
+                        <div id="coupons-list" class="bg-white rounded-2xl border border-slate-100 divide-y divide-slate-100 overflow-hidden">Loading...</div>
+                    </div>
                 </div>
             </div>
-        </main>
+        </div>
     </div>
-    <script src="app.js"></script>
+
+    <script>
+        const API_URL = window.location.origin;
+        const AVATAR_COLORS = ['bg-rose-100 text-rose-700', 'bg-emerald-100 text-emerald-700', 'bg-amber-100 text-amber-700', 'bg-cyan-100 text-cyan-700', 'bg-indigo-100 text-indigo-700', 'bg-pink-100 text-pink-700'];
+        function avatarFor(name) {
+            const initial = (name || '?').trim().charAt(0).toUpperCase();
+            const color = AVATAR_COLORS[(name || '').length % AVATAR_COLORS.length];
+            return `<div class="avatar h-11 w-11 text-sm ${color}">${initial}</div>`;
+        }
+        function pill(text, color) { return `<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-${color}-50 text-${color}-700">${text}</span>`; }
+
+        function authHeaders(json = false) {
+            const token = localStorage.getItem('admin-token');
+            const headers = {};
+            if (json) headers['Content-Type'] = 'application/json';
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            return headers;
+        }
+
+        async function readJson(res) {
+            const text = await res.text();
+            try { return text ? JSON.parse(text) : {}; } catch { return { message: text || `Server returned ${res.status}` }; }
+        }
+
+        async function adminLogin() {
+            const secret = document.getElementById('admin-secret').value;
+            const status = document.getElementById('admin-login-status');
+            try {
+                const res = await fetch(`${API_URL}/api/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ secret }) });
+                const data = await readJson(res);
+                if (!res.ok) throw new Error(data.message || 'Login failed');
+                localStorage.setItem('admin-token', data.token);
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+                showSection('dashboard');
+            } catch (err) { status.textContent = err.message; }
+        }
+
+        function adminLogout() { localStorage.removeItem('admin-token'); location.reload(); }
+
+        function showSection(name) {
+            document.querySelectorAll('[id^="section-"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`section-${name}`)?.classList.remove('hidden');
+            document.querySelectorAll('.admin-nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.nav === name));
+            closeAdminSidebar();
+            if (name === 'dashboard') loadDashboard();
+            if (name === 'customers') loadCustomers();
+            if (name === 'vendors') loadVendors();
+            if (name === 'products') loadAdminProducts();
+            if (name === 'orders') loadAdminOrders();
+            if (name === 'coupons') loadCoupons();
+        }
+
+        async function loadCustomers() {
+            const search = document.getElementById('admin-customer-search')?.value || '';
+            const res = await fetch(`${API_URL}/api/admin/customers${search ? `?search=${encodeURIComponent(search)}` : ''}`, { headers: authHeaders() });
+            const customers = await readJson(res);
+            document.getElementById('admin-customers-list').innerHTML = (customers || []).map(c => `
+                <div class="p-4 flex items-center gap-4 row-hover transition">
+                    ${avatarFor(c.fullName)}
+                    <div class="min-w-0 flex-1"><p class="font-semibold text-slate-900 truncate">${c.fullName}</p><p class="text-sm text-slate-500 truncate">${c.email} — joined ${new Date(c.createdAt).toLocaleDateString()}</p></div>
+                    <div class="text-right flex-shrink-0"><p class="font-semibold text-slate-900">${c.totalSpent.toLocaleString()} CFA</p><p class="text-xs text-slate-500">${c.orderCount} order${c.orderCount === 1 ? '' : 's'}</p></div>
+                </div>`).join('') || '<p class="p-6 text-slate-500 text-center">No customers yet.</p>';
+        }
+
+        function openAdminSidebar() { document.getElementById('admin-sidebar')?.classList.remove('-translate-x-full'); document.getElementById('admin-sidebar-overlay')?.classList.remove('hidden'); }
+        function closeAdminSidebar() { document.getElementById('admin-sidebar')?.classList.add('-translate-x-full'); document.getElementById('admin-sidebar-overlay')?.classList.add('hidden'); }
+
+        async function loadDashboard() {
+            const res = await fetch(`${API_URL}/api/admin/stats`, { headers: authHeaders() });
+            const data = await readJson(res);
+            if (!res.ok) return;
+            document.getElementById('stat-users').textContent = data.userCount;
+            document.getElementById('stat-vendors').textContent = data.vendorCount;
+            document.getElementById('stat-products').textContent = data.productCount;
+            document.getElementById('stat-orders').textContent = data.paidOrderCount;
+            document.getElementById('stat-gmv').textContent = data.totalGMV.toLocaleString() + ' CFA';
+            document.getElementById('stat-revenue').textContent = data.platformRevenue.toLocaleString() + ' CFA';
+        }
+
+        async function loadVendors() {
+            const res = await fetch(`${API_URL}/api/admin/vendors`, { headers: authHeaders() });
+            const vendors = await readJson(res);
+            document.getElementById('vendors-list').innerHTML = (vendors || []).map(v => `
+                <div class="p-4 row-hover transition">
+                    <div class="flex flex-wrap justify-between items-center gap-3">
+                        <div class="flex items-center gap-4 min-w-0">
+                            ${avatarFor(v.businessName || v.fullName)}
+                            <div class="min-w-0">
+                                <p class="font-semibold text-slate-900 truncate">${v.businessName || v.fullName}</p>
+                                <p class="text-sm text-slate-500 truncate">${v.fullName} — ${v.email}</p>
+                                <p class="text-sm text-slate-500 mt-0.5">${v.productCount} listings — earned ${v.totalEarned.toLocaleString()} CFA — paid out ${v.totalPaidOut.toLocaleString()} CFA</p>
+                                ${v.momoPhone ? `<p class="text-xs text-slate-400 mt-0.5">📱 ${v.momoProvider === 'MTN' ? 'MTN' : 'Orange'} Money: ${v.momoPhone}</p>` : `<p class="text-xs text-amber-500 mt-0.5">⚠️ No Mobile Money number registered yet</p>`}
+                            </div>
+                        </div>
+                        <div class="text-right flex-shrink-0">
+                            <p class="text-lg font-bold ${v.balance > 0 ? 'text-amber-600' : 'text-slate-400'}">${v.balance.toLocaleString()} CFA owed</p>
+                            <div class="flex flex-col items-end gap-0.5 mt-1">
+                                ${v.momoPhone ? `<button onclick="sendRealPayout('${v.id}', ${v.balance})" class="text-sm text-emerald-600 hover:underline font-medium">Send via Mobile Money</button>` : ''}
+                                <button onclick="openPayoutForm('${v.id}', '${(v.businessName || v.fullName).replace(/'/g, "\\'")}', ${v.balance})" class="text-sm text-blue-600 hover:underline font-medium">Record payout manually</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="payout-form-${v.id}" class="hidden mt-4 bg-slate-50 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input type="number" id="payout-amount-${v.id}" placeholder="Amount (CFA)" class="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-emerald-400">
+                        <input type="text" id="payout-method-${v.id}" placeholder="Method (e.g. MTN MoMo)" class="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-emerald-400">
+                        <input type="text" id="payout-reference-${v.id}" placeholder="Reference / phone number" class="px-3 py-2 border border-slate-200 rounded-lg text-sm sm:col-span-2 outline-none focus:border-emerald-400">
+                        <button onclick="recordPayout('${v.id}')" class="sm:col-span-2 bg-emerald-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-emerald-700">Confirm payout sent</button>
+                        <p id="payout-status-${v.id}" class="sm:col-span-2 text-sm"></p>
+                    </div>
+                </div>`).join('') || '<p class="p-6 text-slate-500 text-center">No sellers yet.</p>';
+        }
+
+        function openPayoutForm(vendorId, name, balance) {
+            const form = document.getElementById(`payout-form-${vendorId}`);
+            form.classList.toggle('hidden');
+            const amountInput = document.getElementById(`payout-amount-${vendorId}`);
+            if (!amountInput.value) amountInput.placeholder = `Amount (CFA) — up to ${balance.toLocaleString()} owed`;
+        }
+
+        async function sendRealPayout(vendorId, balance) {
+            const amount = prompt(`Send how much to this seller via Mobile Money? (up to ${balance.toLocaleString()} CFA owed)`);
+            if (!amount) return;
+            if (!confirm(`This will send ${Number(amount).toLocaleString()} CFA to the seller's real Mobile Money account right now. Continue?`)) return;
+            try {
+                const res = await fetch(`${API_URL}/api/admin/vendors/${vendorId}/payouts/send`, { method: 'POST', headers: authHeaders(true), body: JSON.stringify({ amount }) });
+                const data = await readJson(res);
+                if (!res.ok) throw new Error(data.message || 'Transfer failed');
+                alert('Transfer initiated successfully!');
+                loadVendors();
+            } catch (err) { alert('Transfer failed: ' + err.message); }
+        }
+
+        async function recordPayout(vendorId) {
+            const status = document.getElementById(`payout-status-${vendorId}`);
+            const body = { amount: document.getElementById(`payout-amount-${vendorId}`).value, method: document.getElementById(`payout-method-${vendorId}`).value, reference: document.getElementById(`payout-reference-${vendorId}`).value };
+            try {
+                const res = await fetch(`${API_URL}/api/admin/vendors/${vendorId}/payouts`, { method: 'POST', headers: authHeaders(true), body: JSON.stringify(body) });
+                const data = await readJson(res);
+                if (!res.ok) throw new Error(data.message || 'Failed to record payout');
+                status.textContent = 'Payout recorded!'; status.className = 'sm:col-span-2 text-sm text-emerald-600';
+                loadVendors();
+            } catch (err) { status.textContent = err.message; status.className = 'sm:col-span-2 text-sm text-red-600'; }
+        }
+
+        async function loadAdminProducts() {
+            const search = document.getElementById('admin-product-search')?.value || '';
+            const res = await fetch(`${API_URL}/api/admin/products${search ? `?search=${encodeURIComponent(search)}` : ''}`, { headers: authHeaders() });
+            const products = await readJson(res);
+            document.getElementById('admin-products-list').innerHTML = (products || []).map(p => `
+                <div class="p-4 flex items-center gap-4 row-hover transition">
+                    ${p.image ? `<img src="${p.image}" class="h-11 w-11 rounded-xl object-cover flex-shrink-0" onerror="this.outerHTML='${avatarFor(p.name).replace(/'/g, "\\'")}'">` : avatarFor(p.name)}
+                    <div class="min-w-0 flex-1"><p class="font-semibold text-slate-900 truncate">${p.name}</p><p class="text-sm text-slate-500">${p.vendor} — ${Number(p.price).toLocaleString()} CFA</p></div>
+                    ${p.stock > 0 ? pill(`${p.stock} available`, 'emerald') : pill('Sold out', 'red')}
+                    <button onclick="deleteAdminProduct('${p.id}')" class="text-red-600 hover:underline text-sm flex-shrink-0 ml-2">Delete</button>
+                </div>`).join('') || '<p class="p-6 text-slate-500 text-center">No listings found.</p>';
+        }
+
+        async function deleteAdminProduct(id) {
+            if (!confirm('Delete this listing? This cannot be undone.')) return;
+            const res = await fetch(`${API_URL}/api/admin/products/${id}`, { method: 'DELETE', headers: authHeaders() });
+            const data = await readJson(res);
+            if (res.ok) loadAdminProducts(); else alert(data.message || 'Failed to delete');
+        }
+
+        async function loadAdminOrders() {
+            const res = await fetch(`${API_URL}/api/admin/orders`, { headers: authHeaders() });
+            const orders = await readJson(res);
+            document.getElementById('admin-orders-list').innerHTML = (orders || []).map(o => `
+                <div class="bg-white p-5 rounded-2xl border border-slate-100">
+                    <div class="flex flex-wrap justify-between gap-2">
+                        <div><p class="font-semibold text-slate-900">${o.customerName} <span class="text-slate-400 font-normal text-sm">(${o.customerEmail})</span></p><p class="text-xs text-slate-500">${new Date(o.createdAt).toLocaleString()}</p></div>
+                        <div class="text-right">${pill(o.status, o.paymentStatus === 'PAID' ? 'emerald' : 'slate')}</div>
+                    </div>
+                    <div class="text-sm text-slate-600 mt-3">${o.items.map(i => `${i.productName} x${i.quantity}`).join(', ')}</div>
+                    <div class="text-sm mt-2 flex flex-wrap gap-4 text-slate-600">
+                        <span>Subtotal: ${o.itemsSubtotal.toLocaleString()} CFA</span>
+                        <span>Delivery: ${o.deliveryFee.toLocaleString()} CFA</span>
+                        ${o.couponCode ? `<span class="text-emerald-600">Coupon ${o.couponCode}: -${o.discountAmount.toLocaleString()} CFA</span>` : ''}
+                        <span class="font-bold text-slate-900">Total: ${o.totalAmount.toLocaleString()} CFA</span>
+                    </div>
+                    ${o.paymentReference ? `<p class="text-xs text-slate-400 mt-2">Ref: ${o.paymentReference} (${o.paymentProvider || 'n/a'})</p>` : ''}
+                </div>`).join('') || '<p class="text-slate-500 text-center py-6">No orders yet.</p>';
+        }
+
+        async function loadCoupons() {
+            const res = await fetch(`${API_URL}/api/admin/coupons`, { headers: authHeaders() });
+            const coupons = await readJson(res);
+            document.getElementById('coupons-list').innerHTML = (coupons || []).map(c => {
+                const status = !c.active ? 'INACTIVE' : (c.expiresAt && new Date(c.expiresAt) < new Date()) ? 'EXPIRED' : (c.maxUses && c.usesCount >= c.maxUses) ? 'USED UP' : 'ACTIVE';
+                const statusPill = pill(status, status === 'ACTIVE' ? 'emerald' : 'slate');
+                const discount = c.discountType === 'PERCENT' ? `${c.discountValue}%` : `${c.discountValue} CFA`;
+                return `
+                <div class="p-4 flex justify-between items-center gap-4 row-hover transition">
+                    <div class="flex items-center gap-4">
+                        <div class="avatar h-11 w-11 text-sm bg-rose-100 text-rose-700">%</div>
+                        <div><p class="font-semibold text-slate-900 flex items-center gap-2">${c.code} ${statusPill}</p><p class="text-sm text-slate-500">${discount} off — used ${c.usesCount}${c.maxUses ? `/${c.maxUses}` : ''} — min order ${c.minOrderAmount.toLocaleString()} CFA${c.expiresAt ? ` — expires ${new Date(c.expiresAt).toLocaleDateString()}` : ''}</p></div>
+                    </div>
+                    <button onclick="toggleCoupon('${c.code}')" class="text-sm text-blue-600 hover:underline flex-shrink-0 font-medium">${c.active ? 'Deactivate' : 'Activate'}</button>
+                </div>`;
+            }).join('') || '<p class="p-6 text-slate-500 text-center">No coupons yet.</p>';
+        }
+
+        async function createCoupon() {
+            const status = document.getElementById('coupon-form-status');
+            const body = {
+                code: document.getElementById('coupon-code').value,
+                discountType: document.getElementById('coupon-type').value,
+                discountValue: document.getElementById('coupon-value').value,
+                maxUses: document.getElementById('coupon-max-uses').value || undefined,
+                minOrderAmount: document.getElementById('coupon-min-order').value || undefined,
+                expiresInDays: document.getElementById('coupon-expires-days').value || undefined,
+            };
+            try {
+                const res = await fetch(`${API_URL}/api/admin/coupons`, { method: 'POST', headers: authHeaders(true), body: JSON.stringify(body) });
+                const data = await readJson(res);
+                if (!res.ok) throw new Error(data.message || 'Failed to create coupon');
+                status.textContent = 'Coupon created!'; status.className = 'sm:col-span-2 text-sm text-emerald-600';
+                loadCoupons();
+            } catch (err) { status.textContent = err.message; status.className = 'sm:col-span-2 text-sm text-red-600'; }
+        }
+
+        async function toggleCoupon(code) {
+            const res = await fetch(`${API_URL}/api/admin/coupons/${code}/toggle`, { method: 'PUT', headers: authHeaders() });
+            if (res.ok) loadCoupons();
+        }
+
+        window.addEventListener('load', () => {
+            if (localStorage.getItem('admin-token')) {
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+                showSection('dashboard');
+            }
+            document.getElementById('admin-mobile-menu-button')?.addEventListener('click', openAdminSidebar);
+            document.getElementById('admin-sidebar-overlay')?.addEventListener('click', closeAdminSidebar);
+            let debounce = null;
+            document.getElementById('admin-product-search')?.addEventListener('input', () => { clearTimeout(debounce); debounce = setTimeout(loadAdminProducts, 250); });
+            let customerDebounce = null;
+            document.getElementById('admin-customer-search')?.addEventListener('input', () => { clearTimeout(customerDebounce); customerDebounce = setTimeout(loadCustomers, 250); });
+        });
+    </script>
 </body>
 
 </html>

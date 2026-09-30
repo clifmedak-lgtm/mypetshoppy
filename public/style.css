@@ -1,58 +1,108 @@
 :root {
-    --primary: #10b981;
+    --brand-primary: #10b981;
     /* Emerald 500 */
-    --primary-dark: #059669;
+    --brand-primary-dark: #059669;
     /* Emerald 600 */
-    --accent: #f59e0b;
-    /* Amber 500 */
-    --bg-light: #fdfcfb;
+    --brand-accent: #fb7185;
+    /* Rose 400 */
+    --bg-light: #f8fafc;
+
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
 }
 
 body {
-    background-color: var(--bg-light);
-    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    background: var(--bg-light);
 }
 
-.text-primary {
-    color: var(--primary);
-}
-
-.bg-primary {
-    background-color: var(--primary);
-}
-
-.border-primary {
-    border-color: var(--primary);
-}
-
-.btn-primary {
-    background-color: var(--primary);
-    color: white;
-    transition: all 0.3s ease;
-    border-radius: 9999px;
-    padding: 0.75rem 1.5rem;
-    font-weight: 600;
-}
-
-.btn-primary:hover {
-    background-color: var(--primary-dark);
-    transform: translateY(-1px);
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+    outline: 2px solid var(--brand-primary-dark);
+    outline-offset: 2px;
 }
 
 #cart-drawer {
     transform: translateX(100%);
-    transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 200ms ease-in-out;
 }
 
 #cart-drawer.open {
     transform: translateX(0);
 }
 
-.pet-card {
-    transition: all 0.3s ease;
+.badge-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    padding: 0.4rem 0.9rem;
+    font-size: 0.75rem;
+    font-weight: 600;
 }
 
-.pet-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+.fade-in {
+    animation: fadeIn 0.5s ease forwards;
+    opacity: 0;
+    will-change: opacity;
+}
+
+@keyframes fadeIn {
+    to {
+        opacity: 1;
+    }
+}
+
+/* Tailwind's line-clamp utilities need these when using the CDN build without the plugin. */
+.line-clamp-1,
+.line-clamp-2,
+.line-clamp-3 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.line-clamp-1 {
+    -webkit-line-clamp: 1;
+}
+
+.line-clamp-2 {
+    -webkit-line-clamp: 2;
+}
+
+.line-clamp-3 {
+    -webkit-line-clamp: 3;
+}
+
+/* Horizontal carousels (flash sale). A real fixed width — not just min-width — is required:
+   without it a flex item with a long description grows to fit its text instead of wrapping,
+   which also silently breaks line-clamp on the description. */
+#flash-list > a {
+    width: 10rem;
+    min-width: 10rem;
+    max-width: 10rem;
+    flex-shrink: 0;
+    scroll-behavior:hidden;
+   
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        scroll-behavior: auto !important;
+        animation: none !important;
+        transition: none !important;
+    }
 }

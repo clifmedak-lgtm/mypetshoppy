@@ -21,10 +21,9 @@
                 <div class="flex items-center gap-3">
                     <button id="mobile-menu-button" aria-expanded="false" aria-controls="mobile-menu"
                         class="md:hidden inline-flex items-center justify-center rounded-lg border border-gray-200 p-2 text-gray-600 hover:bg-gray-100">
-                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 6h16M4 12h16M4 18h16" />
-                        </svg>
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path
+                                stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 6h16M4 12h16M4 18h16" /></svg>
                     </button>
                     <a href="index.html" class="flex items-center gap-2">
                         <svg class="h-9 w-9" viewBox="0 0 40 40" fill="none">
@@ -47,10 +46,8 @@
                                 class="text-emerald-600">Petshoppy</span></span>
                     </a>
                     <nav class="hidden md:flex md:items-center md:gap-8 ml-6">
-                        <a href="#main-content"
-                            class="text-gray-600 hover:text-emerald-600 text-sm font-medium">Home</a>
-                        <a href="#products"
-                            class="text-gray-600 hover:text-emerald-600 text-sm font-medium">Products</a>
+                        <a href="#main-content" class="text-gray-600 hover:text-emerald-600 text-sm font-medium">Home</a>
+                        <a href="#products" class="text-gray-600 hover:text-emerald-600 text-sm font-medium">Products</a>
                         <a href="#featured" class="text-gray-600 hover:text-emerald-600 text-sm font-medium">Deals</a>
                         <a href="#footer" class="text-gray-600 hover:text-emerald-600 text-sm font-medium">Contact</a>
                     </nav>
@@ -71,9 +68,9 @@
                         <span class="text-xs text-gray-400">Welcome back</span>
                         Account
                     </a>
-                    <button type="button"
-                        class="open-vendor-modal hidden sm:inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-emerald-600">Seller
-                        sign in</button>
+                    <a href="vendor-dashboard.html"
+                        class="hidden sm:inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-emerald-600">Seller
+                        sign in</a>
                     <button id="cart-open-button" type="button"
                         class="relative flex items-center justify-center text-gray-600 hover:text-emerald-600"
                         aria-label="Open cart">
@@ -95,16 +92,10 @@
                     </div>
                 </form>
                 <div class="mt-3 space-y-1">
-                    <a href="#main-content"
-                        class="block rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Home</a>
-                    <a href="#products"
-                        class="block rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Products</a>
-                    <a id="mobile-account-button" href="account.html"
-                        class="block rounded-xl px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50">Sign in
-                        / Account</a>
-                    <button type="button"
-                        class="open-vendor-modal block w-full text-left rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Seller
-                        sign in</button>
+                    <a href="#main-content" class="block rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Home</a>
+                    <a href="#products" class="block rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Products</a>
+                    <a id="mobile-account-button" href="account.html" class="block rounded-xl px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50">Sign in / Account</a>
+                    <button type="button" class="open-vendor-modal block w-full text-left rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" onclick="window.location.href='vendor-dashboard.html'">Seller sign in</button>
                 </div>
             </div>
         </div>
@@ -113,34 +104,42 @@
     <div class="bg-gradient-to-r from-rose-500 to-emerald-600 relative overflow-hidden">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10 text-center">
             <h1 class="text-3xl sm:text-4xl font-extrabold text-white">Find your new best friend</h1>
-            <p class="mt-3 text-white/90 max-w-xl mx-auto">Healthy pets, quality supplies, and trusted local sellers —
-                all in one place.</p>
+            <p class="mt-3 text-white/90 max-w-xl mx-auto">Healthy pets, quality supplies, and trusted local sellers — all in one place.</p>
         </div>
     </div>
 
     <main id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <!-- Flash Sale + auto-rotating best sellers -->
+        <div class="grid gap-6 lg:grid-cols-[1.6fr_1fr] mb-12">
+            <section class="rounded-3xl bg-gradient-to-br from-rose-500 to-orange-500 p-6 text-white relative overflow-hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-2xl font-extrabold">⚡ Flash Sale</h2>
+                        <p class="text-white/80 text-sm mt-1">Limited-time deals on pets & supplies.</p>
+                    </div>
+                    <div id="flash-timer" class="bg-white/20 rounded-xl px-4 py-2 font-bold tabular-nums">--:--:--</div>
+                </div>
+                <div id="flash-list" class="flex gap-4 overflow-x-auto pb-2 scrollbar-hidden"></div>
+            </section>
+
+            <section class=" bg-white rounded-3xl  border border-gray-200 p-6 shadow-sm flex flex-col">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-gray-900">🔥 Most loved</h2>
+                    <div id="carousel-dots" class="flex gap-1.5"></div>
+                </div>
+                <div id="carousel-slide" class="flex-1 flex items-center justify-center text-sm text-gray-400">Loading...</div>
+            </section>
+        </div>
+
         <section id="products" class="mb-8">
             <div class="flex flex-wrap gap-2 mb-6">
-                <button data-category-filter="all"
-                    class="bg-emerald-600 text-white px-4 py-2 rounded-full text-sm font-semibold">All</button>
-                <button data-category-filter="dogs"
-                    class="bg-white border border-gray-200 px-4 py-2 rounded-full text-sm font-semibold hover:border-emerald-400">🐶
-                    Dogs</button>
-                <button data-category-filter="cats"
-                    class="bg-white border border-gray-200 px-4 py-2 rounded-full text-sm font-semibold hover:border-emerald-400">🐱
-                    Cats</button>
-                <button data-category-filter="small-pets"
-                    class="bg-white border border-gray-200 px-4 py-2 rounded-full text-sm font-semibold hover:border-emerald-400">🐹
-                    Small Pets</button>
-                <button data-category-filter="food"
-                    class="bg-white border border-gray-200 px-4 py-2 rounded-full text-sm font-semibold hover:border-emerald-400">🍖
-                    Food</button>
-                <button data-category-filter="toys"
-                    class="bg-white border border-gray-200 px-4 py-2 rounded-full text-sm font-semibold hover:border-emerald-400">🧸
-                    Toys</button>
-                <button data-category-filter="accessories"
-                    class="bg-white border border-gray-200 px-4 py-2 rounded-full text-sm font-semibold hover:border-emerald-400">🦴
-                    Accessories</button>
+                <button data-category-filter="all" class="bg-emerald-600 text-white px-4 py-2 rounded-full text-sm font-semibold">All</button>
+                <button data-category-filter="dogs" class="bg-white border border-gray-200 px-4 py-2 rounded-full text-sm font-semibold hover:border-emerald-400">🐶 Dogs</button>
+                <button data-category-filter="cats" class="bg-white border border-gray-200 px-4 py-2 rounded-full text-sm font-semibold hover:border-emerald-400">🐱 Cats</button>
+                <button data-category-filter="small-pets" class="bg-white border border-gray-200 px-4 py-2 rounded-full text-sm font-semibold hover:border-emerald-400">🐹 Small Pets</button>
+                <button data-category-filter="food" class="bg-white border border-gray-200 px-4 py-2 rounded-full text-sm font-semibold hover:border-emerald-400">🍖 Food</button>
+                <button data-category-filter="toys" class="bg-white border border-gray-200 px-4 py-2 rounded-full text-sm font-semibold hover:border-emerald-400">🧸 Toys</button>
+                <button data-category-filter="accessories" class="bg-white border border-gray-200 px-4 py-2 rounded-full text-sm font-semibold hover:border-emerald-400">🦴 Accessories</button>
             </div>
 
             <div id="search-panel" class="rounded-3xl bg-white border border-gray-200 p-6 shadow-sm mb-8">
@@ -202,8 +201,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid gap-10 md:grid-cols-3">
                 <div>
-                    <span class="text-xl font-extrabold"><span class="text-rose-500">My</span><span
-                            class="text-emerald-600">Petshoppy</span></span>
+                    <span class="text-xl font-extrabold"><span class="text-rose-500">My</span><span class="text-emerald-600">Petshoppy</span></span>
                     <p class="mt-4 text-sm text-gray-500">A trusted marketplace for pets and pet supplies.</p>
                 </div>
                 <div>

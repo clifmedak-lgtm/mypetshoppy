@@ -269,8 +269,82 @@ function attachCategoryFilters() {
 
 // ===== Page initializers =====
 
+async function initFlashSale() {
+  const flashList = document.getElementById('flash-list');
+  const timerEl = document.getElementById('flash-timer');
+  if (!flashList) return;
+
+  // Countdown to midnight — a simple, honest "deals reset daily" timer.
+  function tick() {
+    if (!timerEl) return;
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    const diff = midnight - now;
+    const h = String(Math.floor(diff / 3600000)).padStart(2, '0');
+    const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
+    const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
+    timerEl.textContent = `${h}:${m}:${s}`;
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  try {
+    const products = await apiFetch('/api/products?sort=price_asc');
+    const deals = products.slice(0, 8);
+    if (deals.length === 0) { flashList.innerHTML = '<p class="text-white/70 text-sm hide-scrollbar ">No deals right now — check back soon.</p>'; return; }
+    flashList.innerHTML = deals.map(p => `
+      <a href="product.html?id=${encodeURIComponent(p.id)}" class="flex-shrink-0 w-40 bg-white rounded-2xl overflow-hidden shadow hover:shadow-lg transition">
+        ${p.image ? `<img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}" class="h-28 w-full object-cover">` : '<div class="h-28 w-full bg-gray-100 flex items-center justify-center text-3xl">🐾</div>'}
+        <div class="p-3">
+          <p class="text-xs font-semibold text-gray-900 line-clamp-2">${escapeHtml(p.name)}</p>
+          <p class="text-sm font-extrabold text-rose-600 mt-1">${formatMoney(p.price)}</p>
+        </div>
+      </a>
+    `).join('');
+  } catch (err) {
+    flashList.innerHTML = '<p class="text-white/70 text-sm">Unable to load deals.</p>';
+  }
+}
+
+async function initBestSellersCarousel() {
+  const slide = document.getElementById('carousel-slide');
+  const dots = document.getElementById('carousel-dots');
+  if (!slide) return;
+
+  let products = [];
+  try {
+    products = await apiFetch('/api/recommendations');
+  } catch (err) {
+    slide.innerHTML = '<p class="text-sm text-red-500">Unable to load.</p>';
+    return;
+  }
+  products = products.slice(0, 5);
+  if (products.length === 0) { slide.innerHTML = '<p class="text-sm text-gray-400">Nothing here yet.</p>'; return; }
+
+  let index = 0;
+  function render() {
+    const p = products[index];
+    slide.innerHTML = `
+      <a href="product.html?id=${encodeURIComponent(p.id)}" class="block w-full text-center ">
+        ${p.image ? `<img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}" class="h-60 w-full object-cover rounded-2xl mb-3 overflow-hidden">` : '<div class="h-40 w-full bg-gray-100 rounded-2xl flex items-center justify-center text-5xl mb-3">🐾</div>'}
+        <p class="font-bold text-gray-900 line-clamp-1">${escapeHtml(p.name)}</p>
+        ${p.rating ? `<p class="text-xs text-yellow-600 mt-0.5">${p.rating.toFixed(1)} ★</p>` : ''}
+        <p class="text-lg font-extrabold text-emerald-600 mt-1">${formatMoney(p.price)}</p>
+      </a>
+    `;
+    if (dots) {
+      dots.innerHTML = products.map((_, i) => `<span class="h-1.5 rounded-full transition-all ${i === index ? 'w-5 bg-emerald-600' : 'w-1.5 bg-gray-300'}"></span>`).join('');
+    }
+  }
+  render();
+  setInterval(() => { index = (index + 1) % products.length; render(); }, 6000);
+}
+
 async function initIndexPage() {
   attachCategoryFilters();
+  initFlashSale();
+  initBestSellersCarousel();
   const searchInput = document.getElementById('search-input');
   if (searchInput && getQueryParam('search')) searchInput.value = getQueryParam('search');
 

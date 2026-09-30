@@ -1,12 +1,14 @@
 {
-  "name": "pethaven-shop",
+  "name": "mypetshoppy",
   "version": "1.0.0",
   "type": "module",
+  "description": "MyPetshoppy — a pets & supplies marketplace",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "build": "prisma generate",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev --name init_pethaven",
+    "prisma:push": "prisma db push",
     "prisma:seed": "node prisma/seed.js"
   },
   "dependencies": {
@@ -15,10 +17,10 @@
     "cloudinary": "^2.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.0.0",
-    "express": "^5.0.0"
+    "express": "^5.0.0",
+    "prisma": "^5.0.0"
   },
   "devDependencies": {
-    "prisma": "^5.0.0",
     "tailwindcss": "^3.4.1"
   }
 }

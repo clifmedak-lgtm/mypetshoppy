@@ -1,0 +1,37 @@
+# ===== MyPetshoppy environment variables =====
+# Copy this file to .env and fill in your real values. NEVER commit .env to git.
+
+# --- Database (required) ---
+# Your Neon PostgreSQL connection string. Use the POOLED connection.
+# Get it from console.neon.tech -> your project -> Connect.
+DATABASE_URL="postgresql://user:password@ep-xxxx-pooler.region.aws.neon.tech/neondb?sslmode=require"
+
+# --- Public URL of this app (required) ---
+# Must include https:// and no trailing slash. Used to build payment return links.
+# Local: http://localhost:3000   Production: https://your-app.vercel.app
+APP_URL=http://localhost:3000
+
+# --- Admin panel (required to access admin.html) ---
+# Any strong password you choose. This is what you type on the admin login screen.
+ADMIN_SECRET=change-me-to-something-strong
+
+# --- Payments: NotchPay (required to take real payments) ---
+# Public key: collects payments from customers. From business.notchpay.co
+NOTCHPAY_PUBLIC_KEY=pk_test_xxxxxxxxxxxxx
+# Private key: ONLY needed to send payouts to sellers' Mobile Money accounts.
+# Also requires your server IP whitelisted at business.notchpay.co/settings/developer/ips
+NOTCHPAY_PRIVATE_KEY=sk_test_xxxxxxxxxxxxx
+
+# --- Business settings (optional — sensible defaults if omitted) ---
+DELIVERY_FEE_XAF=1500
+COMMISSION_RATE_PERCENT=10
+
+# --- Email: Brevo (optional — needed for password reset emails) ---
+BREVO_API_KEY=
+EMAIL_FROM=your-verified-sender@example.com
+EMAIL_FROM_NAME=MyPetshoppy
+
+# --- Image uploads: Cloudinary (optional — needed for seller photo uploads) ---
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
