@@ -29,8 +29,10 @@ const EMAIL_FROM = process.env.EMAIL_FROM;
 const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || 'MyPetshoppy';
 
 // Business parameters
-const DELIVERY_FEE_XAF = Math.max(0, parseInt(process.env.DELIVERY_FEE_XAF) || 1500);
-const COMMISSION_RATE_PERCENT = Math.min(100, Math.max(0, parseFloat(process.env.COMMISSION_RATE_PERCENT) || 10));
+const configuredDeliveryFee = Number(process.env.DELIVERY_FEE_XAF);
+const configuredCommissionRate = Number(process.env.COMMISSION_RATE_PERCENT);
+const DELIVERY_FEE_XAF = Number.isFinite(configuredDeliveryFee) ? Math.min(2147483647, Math.max(0, Math.floor(configuredDeliveryFee))) : 1500;
+const COMMISSION_RATE_PERCENT = Number.isFinite(configuredCommissionRate) ? Math.min(100, Math.max(0, configuredCommissionRate)) : 10;
 
 if (process.env.CLOUDINARY_CLOUD_NAME) {
   cloudinary.config({
@@ -51,6 +53,12 @@ app.use((req, res, next) => {
 
 function generateToken() {
   return crypto.randomBytes(32).toString('hex');
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
 }
 
 const addUserToRequest = async (req, res, next) => {
@@ -186,16 +194,18 @@ app.get('/api/recommendations', asyncHandler(async (req, res) => {
 
 app.post('/api/auth/register', asyncHandler(async (req, res) => {
   const { fullName, email, password } = req.body;
-  if (!fullName?.trim() || !email?.trim() || !password?.trim()) {
+  if (typeof fullName !== 'string' || !fullName.trim() || fullName.length > 120
+    || typeof email !== 'string' || !email.trim() || typeof password !== 'string' || password.length < 6) {
     return res.status(400).json({ success: false, message: 'Missing registration fields' });
   }
 
-  const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+  const normalizedEmail = email.trim().toLowerCase();
+  const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
   if (existing) return res.status(400).json({ success: false, message: 'Email already registered' });
 
   const hashed = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
-    data: { fullName, email: email.toLowerCase(), password: hashed, role: 'customer' }
+    data: { fullName: fullName.trim(), email: normalizedEmail, password: hashed, role: 'customer' }
   });
 
   const token = generateToken();
@@ -207,7 +217,10 @@ app.post('/api/auth/register', asyncHandler(async (req, res) => {
 
 app.post('/api/auth/login', asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-  const user = await prisma.user.findUnique({ where: { email: email?.toLowerCase() } });
+  if (typeof email !== 'string' || typeof password !== 'string') {
+    return res.status(401).json({ success: false, message: 'Invalid email or password' });
+  }
+  const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
   if (!user) return res.status(401).json({ success: false, message: 'Invalid email or password' });
 
   const ok = await bcrypt.compare(password, user.password);
@@ -223,7 +236,7 @@ app.post('/api/auth/login', asyncHandler(async (req, res) => {
 app.post('/api/auth/forgot-password', asyncHandler(async (req, res) => {
   const { email } = req.body;
   const genericResponse = { success: true, message: 'If that email is registered, a reset link has been sent.' };
-  if (!email?.trim()) return res.json(genericResponse);
+  if (typeof email !== 'string' || !email.trim()) return res.json(genericResponse);
 
   const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
   if (!user) return res.json(genericResponse);
@@ -237,7 +250,7 @@ app.post('/api/auth/forgot-password', asyncHandler(async (req, res) => {
     await sendEmail({
       to: user.email,
       subject: 'Reset your MyPetshoppy password',
-      htmlContent: `<p>Hi ${user.fullName},</p><p>Click the link below to reset your password. This link expires in 1 hour.</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>If you didn't request this, you can safely ignore this email.</p>`,
+      htmlContent: `<p>Hi ${escapeHtml(user.fullName)},</p><p>Click the link below to reset your password. This link expires in 1 hour.</p><p><a href="${escapeHtml(resetUrl)}">${escapeHtml(resetUrl)}</a></p><p>If you didn't request this, you can safely ignore this email.</p>`,
     });
   } catch (e) {
     console.error('Failed to send reset email:', e);
@@ -248,7 +261,7 @@ app.post('/api/auth/forgot-password', asyncHandler(async (req, res) => {
 
 app.post('/api/auth/reset-password', asyncHandler(async (req, res) => {
   const { token, newPassword } = req.body;
-  if (!token || !newPassword || newPassword.length < 6) {
+  if (typeof token !== 'string' || !token || typeof newPassword !== 'string' || newPassword.length < 6) {
     return res.status(400).json({ success: false, message: 'A valid token and a password of at least 6 characters are required' });
   }
 
@@ -290,7 +303,7 @@ app.get('/api/config', (req, res) => {
 });
 
 async function validateCoupon(code, itemsSubtotal) {
-  if (!code?.trim()) return { valid: false, message: 'Enter a coupon code' };
+  if (typeof code !== 'string' || !code.trim()) return { valid: false, message: 'Enter a coupon code' };
 
   const coupon = await prisma.coupon.findUnique({ where: { code: code.trim().toUpperCase() } });
   if (!coupon || !coupon.active) return { valid: false, message: 'Invalid or inactive coupon code' };
@@ -301,7 +314,7 @@ async function validateCoupon(code, itemsSubtotal) {
   }
 
   const discountAmount = coupon.discountType === 'PERCENT'
-    ? Math.round(itemsSubtotal * (coupon.discountValue / 100))
+    ? Math.min(itemsSubtotal, Math.round(itemsSubtotal * (coupon.discountValue / 100)))
     : Math.min(coupon.discountValue, itemsSubtotal);
 
   return { valid: true, coupon, discountAmount };
@@ -324,16 +337,29 @@ app.post('/api/checkout', requireAuth, asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'Shipping address, city and phone are required' });
   }
 
-  const productIds = items.map(i => String(i.id || i.productId)).filter(Boolean);
+  if (!Array.isArray(items)) {
+    return res.status(400).json({ success: false, message: 'Cart items must be a list' });
+  }
+
+  const quantitiesByProductId = new Map();
+  for (const item of items) {
+    const productId = item?.id || item?.productId;
+    const quantity = Number(item?.quantity);
+    if (typeof productId !== 'string' || !productId || !Number.isSafeInteger(quantity) || quantity < 1) {
+      return res.status(400).json({ success: false, message: 'Each cart item needs a product and a positive whole quantity' });
+    }
+    quantitiesByProductId.set(productId, (quantitiesByProductId.get(productId) || 0) + quantity);
+  }
+
+  const productIds = [...quantitiesByProductId.keys()];
   const dbProducts = await prisma.product.findMany({ where: { id: { in: productIds } } });
   const productById = Object.fromEntries(dbProducts.map(p => [p.id, p]));
 
-  const requestedItems = items
-    .filter(i => productById[String(i.id || i.productId)] !== undefined)
-    .map(i => ({
-      productId: String(i.id || i.productId),
-      quantity: Math.max(1, parseInt(i.quantity) || 1),
-    }));
+  const requestedItems = [...quantitiesByProductId].map(([productId, quantity]) => ({ productId, quantity }));
+  const missingProductIds = requestedItems.filter(item => !productById[item.productId]).map(item => item.productId);
+  if (missingProductIds.length) {
+    return res.status(400).json({ success: false, message: 'One or more products in your cart are no longer available', missingProductIds });
+  }
 
   if (!requestedItems.length) {
     return res.status(400).json({ success: false, message: 'No valid products in cart' });
@@ -362,11 +388,15 @@ app.post('/api/checkout', requireAuth, asyncHandler(async (req, res) => {
   });
 
   const itemsSubtotal = orderItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  if (orderItems.some(item => !Number.isSafeInteger(item.price * item.quantity) || item.price * item.quantity > 2147483647)
+    || !Number.isSafeInteger(itemsSubtotal) || itemsSubtotal > 2147483647) {
+    return res.status(400).json({ success: false, message: 'Your order total is too large to process' });
+  }
   const deliveryFee = DELIVERY_FEE_XAF;
 
   let discountAmount = 0;
   let appliedCouponCode = null;
-  if (couponCode?.trim()) {
+  if (typeof couponCode === 'string' && couponCode.trim()) {
     const couponResult = await validateCoupon(couponCode, itemsSubtotal);
     if (!couponResult.valid) {
       return res.status(400).json({ success: false, message: couponResult.message });
@@ -376,6 +406,9 @@ app.post('/api/checkout', requireAuth, asyncHandler(async (req, res) => {
   }
 
   const totalAmount = itemsSubtotal - discountAmount + deliveryFee;
+  if (!Number.isSafeInteger(totalAmount) || totalAmount < 0 || totalAmount > 2147483647) {
+    return res.status(400).json({ success: false, message: 'Your order total is outside the supported range' });
+  }
 
   const order = await prisma.order.create({
     data: {
@@ -438,30 +471,46 @@ async function verifyNotchpayTransaction(reference) {
   const notchpayRes = await fetch(`${NOTCHPAY_BASE_URL}/payments/${encodeURIComponent(reference)}`, {
     headers: { 'Authorization': NOTCHPAY_PUBLIC_KEY, 'Accept': 'application/json' },
   });
-  return notchpayRes.json();
+  const result = await notchpayRes.json().catch(() => ({}));
+  if (!notchpayRes.ok) throw new Error(result.message || 'Unable to verify payment with NotchPay');
+  return result;
 }
 
-async function markOrderFromNotchpayResult(orderId, result) {
-  const order = await prisma.order.findUnique({ where: { id: orderId } });
+async function markOrderFromNotchpayResult(reference, result) {
+  const order = await prisma.order.findFirst({
+    where: { OR: [{ id: reference }, { paymentReference: reference }] }
+  });
   if (!order || order.paymentStatus === 'PAID') return order;
 
   const status = result?.transaction?.status;
   if (status === 'complete') {
-    const updated = await prisma.order.update({ where: { id: orderId }, data: { paymentStatus: 'PAID', status: 'PROCESSING' } });
-    const items = await prisma.orderItem.findMany({ where: { orderId } });
-    for (const item of items) {
-      await prisma.product.updateMany({
-        where: { id: item.productId, stock: { gte: item.quantity } },
-        data: { stock: { decrement: item.quantity } }
-      }).catch(() => {});
-    }
-    if (order.couponCode) {
-      await prisma.coupon.update({ where: { code: order.couponCode }, data: { usesCount: { increment: 1 } } }).catch(() => {});
-    }
-    return updated;
+    return prisma.$transaction(async (tx) => {
+      // Claim the transition once so duplicate webhooks/polls cannot decrement stock twice.
+      const claimed = await tx.order.updateMany({
+        where: { id: order.id, paymentStatus: { not: 'PAID' } },
+        data: { paymentStatus: 'PAID', status: 'PROCESSING' },
+      });
+      if (!claimed.count) return tx.order.findUnique({ where: { id: order.id } });
+
+      const items = await tx.orderItem.findMany({ where: { orderId: order.id } });
+      for (const item of items) {
+        const stockUpdate = await tx.product.updateMany({
+          where: { id: item.productId, stock: { gte: item.quantity } },
+          data: { stock: { decrement: item.quantity } },
+        });
+        if (!stockUpdate.count) {
+          console.error(`Paid order ${order.id} exceeds available stock for product ${item.productId}`);
+        }
+      }
+      if (order.couponCode) {
+        await tx.coupon.updateMany({ where: { code: order.couponCode }, data: { usesCount: { increment: 1 } } });
+      }
+      return tx.order.findUnique({ where: { id: order.id } });
+    });
   }
   if (status === 'failed' || status === 'canceled' || status === 'expired') {
-    return prisma.order.update({ where: { id: orderId }, data: { paymentStatus: 'FAILED' } });
+    await prisma.order.updateMany({ where: { id: order.id, paymentStatus: 'UNPAID' }, data: { paymentStatus: 'FAILED', status: 'CANCELLED' } });
+    return prisma.order.findUnique({ where: { id: order.id } });
   }
   return order;
 }
@@ -514,6 +563,9 @@ app.post('/api/products/:id/reviews', requireAuth, asyncHandler(async (req, res)
 
   const product = await prisma.product.findUnique({ where: { id: req.params.id } });
   if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+  if (comment !== undefined && comment !== null && typeof comment !== 'string') {
+    return res.status(400).json({ success: false, message: 'Review comment must be text' });
+  }
 
   const hasPurchased = await prisma.orderItem.findFirst({ where: { productId: req.params.id, order: { userId: req.user.id, paymentStatus: 'PAID' } } });
 
@@ -573,15 +625,18 @@ app.post('/api/upload/image', requireVendor, asyncHandler(async (req, res) => {
 
 app.post('/api/vendor/auth/register', asyncHandler(async (req, res) => {
   const { fullName, email, password, businessName } = req.body;
-  if (!fullName?.trim() || !email?.trim() || !password?.trim() || !businessName?.trim()) {
+  if (typeof fullName !== 'string' || !fullName.trim() || fullName.length > 120
+    || typeof email !== 'string' || !email.trim() || typeof password !== 'string' || password.length < 6
+    || typeof businessName !== 'string' || !businessName.trim() || businessName.length > 160) {
     return res.status(400).json({ success: false, message: 'Missing vendor registration fields' });
   }
 
-  const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+  const normalizedEmail = email.trim().toLowerCase();
+  const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
   if (existing) return res.status(400).json({ success: false, message: 'Email already registered' });
 
   const hashed = await bcrypt.hash(password, 10);
-  const vendor = await prisma.user.create({ data: { fullName, email: email.toLowerCase(), password: hashed, role: 'vendor', businessName } });
+  const vendor = await prisma.user.create({ data: { fullName: fullName.trim(), email: normalizedEmail, password: hashed, role: 'vendor', businessName: businessName.trim() } });
 
   const token = generateToken();
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -592,7 +647,10 @@ app.post('/api/vendor/auth/register', asyncHandler(async (req, res) => {
 
 app.post('/api/vendor/auth/login', asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-  const vendor = await prisma.user.findUnique({ where: { email: email?.toLowerCase() } });
+  if (typeof email !== 'string' || typeof password !== 'string') {
+    return res.status(401).json({ success: false, message: 'Invalid vendor credentials' });
+  }
+  const vendor = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
   if (!vendor || vendor.role !== 'vendor') {
     return res.status(401).json({ success: false, message: 'Invalid vendor credentials' });
   }
@@ -616,7 +674,7 @@ app.put('/api/vendor/momo', requireVendor, asyncHandler(async (req, res) => {
   if (!['MTN', 'ORANGE'].includes(momoProvider)) {
     return res.status(400).json({ success: false, message: 'momoProvider must be MTN or ORANGE' });
   }
-  if (!momoPhone?.trim() || !/^\+?[0-9]{8,15}$/.test(momoPhone.trim())) {
+  if (typeof momoPhone !== 'string' || !momoPhone.trim() || !/^\+?[0-9]{8,15}$/.test(momoPhone.trim())) {
     return res.status(400).json({ success: false, message: 'Enter a valid phone number, e.g. +237600000000' });
   }
 
@@ -645,7 +703,17 @@ app.get('/api/vendor/products', requireVendor, asyncHandler(async (req, res) => 
 
 app.post('/api/vendor/products', requireVendor, asyncHandler(async (req, res) => {
   const { name, description, price, category, image, stock, features, breed, age } = req.body;
-  if (!name?.trim() || !price || !category?.trim()) {
+  const allowedCategories = ['dogs', 'cats', 'small-pets', 'food', 'toys', 'accessories'];
+  const priceNum = Number(price);
+  const stockNum = stock === undefined ? 1 : Number(stock);
+  const descriptionText = typeof description === 'string' ? description.trim() : '';
+  const breedText = typeof breed === 'string' ? breed.trim() : '';
+  const ageText = typeof age === 'string' ? age.trim() : '';
+  const imageText = typeof image === 'string' ? image.trim() : '';
+  if (typeof name !== 'string' || !name.trim() || name.length > 120 || !allowedCategories.includes(category)
+    || !Number.isSafeInteger(priceNum) || priceNum < 1 || priceNum > 2147483647
+    || !Number.isSafeInteger(stockNum) || stockNum < 0 || stockNum > 2147483647
+    || descriptionText.length > 10000 || breedText.length > 120 || ageText.length > 120 || imageText.length > 2048) {
     return res.status(400).json({ success: false, message: 'Missing product fields' });
   }
 
@@ -656,10 +724,10 @@ app.post('/api/vendor/products', requireVendor, asyncHandler(async (req, res) =>
   const product = await prisma.product.create({
     data: {
       id: `${category.toLowerCase()}-${slug}-${uniqueSuffix}`,
-      name: name.trim(), description: description?.trim() || '', features: cleanFeatures,
-      price: Math.max(1, parseInt(price)), category: category.toLowerCase(),
-      breed: breed?.trim() || null, age: age?.trim() || null, image: image || '',
-      stock: stock !== undefined ? Math.max(0, parseInt(stock) || 0) : 1,
+      name: name.trim(), description: descriptionText, features: cleanFeatures,
+      price: priceNum, category,
+      breed: breedText || null, age: ageText || null, image: imageText,
+      stock: stockNum,
       vendor: req.user.fullName, vendorId: req.user.id, rating: null,
     }
   });
@@ -671,17 +739,47 @@ app.put('/api/vendor/products/:id', requireVendor, asyncHandler(async (req, res)
   const product = await prisma.product.findFirst({ where: { id: req.params.id, ...vendorProductsWhere(req.user) } });
   if (!product) return res.status(403).json({ success: false, message: 'Not your product' });
 
+  if (req.body.name !== undefined && (typeof req.body.name !== 'string' || !req.body.name.trim() || req.body.name.length > 120)) {
+    return res.status(400).json({ success: false, message: 'Product name must be between 1 and 120 characters' });
+  }
+  if (req.body.description !== undefined && (typeof req.body.description !== 'string' || req.body.description.length > 10000)) {
+    return res.status(400).json({ success: false, message: 'Description must be text under 10,000 characters' });
+  }
+  if (req.body.image !== undefined && (typeof req.body.image !== 'string' || req.body.image.length > 2048)) {
+    return res.status(400).json({ success: false, message: 'Image URL is invalid' });
+  }
+  for (const field of ['breed', 'age']) {
+    if (req.body[field] !== undefined && (typeof req.body[field] !== 'string' || req.body[field].length > 120)) {
+      return res.status(400).json({ success: false, message: `${field} must be text under 120 characters` });
+    }
+  }
+
+  let price = product.price;
+  if (req.body.price !== undefined) {
+    price = Number(req.body.price);
+    if (!Number.isSafeInteger(price) || price < 1 || price > 2147483647) {
+      return res.status(400).json({ success: false, message: 'Price must be a positive whole number' });
+    }
+  }
+  let stock = product.stock;
+  if (req.body.stock !== undefined) {
+    stock = Number(req.body.stock);
+    if (!Number.isSafeInteger(stock) || stock < 0 || stock > 2147483647) {
+      return res.status(400).json({ success: false, message: 'Stock must be a non-negative whole number' });
+    }
+  }
+
   const updated = await prisma.product.update({
     where: { id: req.params.id },
     data: {
-      name: req.body.name || product.name,
-      description: req.body.description !== undefined ? req.body.description : product.description,
+      name: req.body.name !== undefined ? req.body.name.trim() : product.name,
+      description: req.body.description !== undefined ? req.body.description.trim() : product.description,
       features: Array.isArray(req.body.features) ? req.body.features.map(f => String(f).trim()).filter(Boolean).slice(0, 12) : product.features,
-      price: req.body.price ? Math.max(1, parseInt(req.body.price)) : product.price,
-      breed: req.body.breed !== undefined ? req.body.breed : product.breed,
-      age: req.body.age !== undefined ? req.body.age : product.age,
-      image: req.body.image || product.image,
-      stock: req.body.stock !== undefined ? Math.max(0, parseInt(req.body.stock) || 0) : product.stock,
+      price,
+      breed: req.body.breed !== undefined ? req.body.breed.trim() || null : product.breed,
+      age: req.body.age !== undefined ? req.body.age.trim() || null : product.age,
+      image: req.body.image !== undefined ? req.body.image : product.image,
+      stock,
       vendorId: product.vendorId || req.user.id,
     }
   });
@@ -692,6 +790,15 @@ app.put('/api/vendor/products/:id', requireVendor, asyncHandler(async (req, res)
 app.delete('/api/vendor/products/:id', requireVendor, asyncHandler(async (req, res) => {
   const product = await prisma.product.findFirst({ where: { id: req.params.id, ...vendorProductsWhere(req.user) } });
   if (!product) return res.status(403).json({ success: false, message: 'Not your product' });
+
+  const [orderItemCount, wishlistCount, reviewCount] = await Promise.all([
+    prisma.orderItem.count({ where: { productId: product.id } }),
+    prisma.wishlistItem.count({ where: { productId: product.id } }),
+    prisma.review.count({ where: { productId: product.id } }),
+  ]);
+  if (orderItemCount || wishlistCount || reviewCount) {
+    return res.status(409).json({ success: false, message: 'This listing is referenced by order history or customer data and cannot be deleted. Set its stock to 0 instead.' });
+  }
 
   await prisma.product.delete({ where: { id: req.params.id } });
   res.json({ success: true, message: 'Product deleted' });
@@ -710,6 +817,16 @@ app.put('/api/vendor/orders/:id/status', requireVendor, asyncHandler(async (req,
 
   const ownsAnItem = order.items.some(i => i.product?.vendorId === req.user.id || i.product?.vendor === req.user.fullName);
   if (!ownsAnItem) return res.status(403).json({ success: false, message: 'Not your order' });
+  if (order.paymentStatus !== 'PAID') {
+    return res.status(409).json({ success: false, message: 'You can only update fulfillment after payment is confirmed' });
+  }
+  const nextStatuses = {
+    PROCESSING: ['SHIPPED', 'CANCELLED'],
+    SHIPPED: ['DELIVERED', 'CANCELLED'],
+  };
+  if (!nextStatuses[order.status]?.includes(status)) {
+    return res.status(409).json({ success: false, message: 'This fulfillment status transition is not allowed' });
+  }
 
   const updated = await prisma.order.update({ where: { id: order.id }, data: { status } });
   res.json({ success: true, order: updated });
@@ -909,6 +1026,14 @@ app.get('/api/admin/products', requireAdmin, asyncHandler(async (req, res) => {
 }));
 
 app.delete('/api/admin/products/:id', requireAdmin, asyncHandler(async (req, res) => {
+  const [orderItemCount, wishlistCount, reviewCount] = await Promise.all([
+    prisma.orderItem.count({ where: { productId: req.params.id } }),
+    prisma.wishlistItem.count({ where: { productId: req.params.id } }),
+    prisma.review.count({ where: { productId: req.params.id } }),
+  ]);
+  if (orderItemCount || wishlistCount || reviewCount) {
+    return res.status(409).json({ success: false, message: 'This listing is referenced by order history or customer data and cannot be deleted.' });
+  }
   await prisma.product.delete({ where: { id: req.params.id } });
   res.json({ success: true });
 }));
@@ -933,16 +1058,31 @@ app.get('/api/admin/coupons', requireAdmin, asyncHandler(async (req, res) => {
 
 app.post('/api/admin/coupons', requireAdmin, asyncHandler(async (req, res) => {
   const { code, discountType, discountValue, maxUses, minOrderAmount, expiresInDays } = req.body;
-  if (!code?.trim() || !['PERCENT', 'FIXED'].includes(discountType) || !discountValue) {
+  const value = Number(discountValue);
+  const maxUsesNum = maxUses === undefined || maxUses === '' ? null : Number(maxUses);
+  const minOrderNum = minOrderAmount === undefined || minOrderAmount === '' ? 0 : Number(minOrderAmount);
+  const expiresInDaysNum = expiresInDays === undefined || expiresInDays === '' ? null : Number(expiresInDays);
+  if (typeof code !== 'string' || !/^[A-Z0-9_-]{2,32}$/i.test(code.trim())
+    || !['PERCENT', 'FIXED'].includes(discountType)
+    || !Number.isSafeInteger(value) || value < 1 || (discountType === 'PERCENT' && value > 100)
+    || (maxUsesNum !== null && (!Number.isSafeInteger(maxUsesNum) || maxUsesNum < 1))
+    || !Number.isSafeInteger(minOrderNum) || minOrderNum < 0
+    || (expiresInDaysNum !== null && (!Number.isSafeInteger(expiresInDaysNum) || expiresInDaysNum < 1))) {
     return res.status(400).json({ success: false, message: 'Missing or invalid coupon fields' });
   }
-  const coupon = await prisma.coupon.create({
-    data: {
-      code: code.trim().toUpperCase(), discountType, discountValue: parseInt(discountValue),
-      maxUses: maxUses ? parseInt(maxUses) : null, minOrderAmount: minOrderAmount ? parseInt(minOrderAmount) : 0,
-      expiresAt: expiresInDays ? new Date(Date.now() + parseInt(expiresInDays) * 24 * 60 * 60 * 1000) : null,
-    }
-  });
+  let coupon;
+  try {
+    coupon = await prisma.coupon.create({
+      data: {
+        code: code.trim().toUpperCase(), discountType, discountValue: value,
+        maxUses: maxUsesNum, minOrderAmount: minOrderNum,
+        expiresAt: expiresInDaysNum ? new Date(Date.now() + expiresInDaysNum * 24 * 60 * 60 * 1000) : null,
+      }
+    });
+  } catch (error) {
+    if (error.code === 'P2002') return res.status(409).json({ success: false, message: 'A coupon with that code already exists' });
+    throw error;
+  }
   res.json({ success: true, coupon });
 }));
 
@@ -969,7 +1109,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: 'Internal Server Error' });
 });
 
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
   app.listen(port, () => {
     console.log(`MyPetshoppy server running on http://localhost:${port}`);
   });

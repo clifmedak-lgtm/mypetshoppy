@@ -1,6 +1,20 @@
 // ===== Shared state & helpers =====
 
-let currentAuth = JSON.parse(localStorage.getItem('mypetshoppy-auth') || 'null');
+function readStoredJson(key, fallback) {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    localStorage.removeItem(key);
+    return fallback;
+  }
+}
+
+let currentAuth = readStoredJson('mypetshoppy-auth', null);
+if (!currentAuth || typeof currentAuth !== 'object' || typeof currentAuth.token !== 'string'
+  || !currentAuth.user || typeof currentAuth.user !== 'object' || typeof currentAuth.user.fullName !== 'string') {
+  currentAuth = null;
+}
 
 function setAuth(data) {
   currentAuth = data;
@@ -13,7 +27,8 @@ function clearAuth() {
 }
 
 function loadCart() {
-  return JSON.parse(localStorage.getItem('mypetshoppy-cart') || '[]');
+  const cart = readStoredJson('mypetshoppy-cart', []);
+  return Array.isArray(cart) ? cart.filter(item => item && typeof item.id === 'string' && Number.isSafeInteger(item.quantity) && item.quantity > 0) : [];
 }
 
 function saveCart(cart) {
@@ -31,6 +46,16 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function readInputValue(element) {
+  return element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement
+    ? element.value
+    : '';
+}
+
+function readFieldValue(root, selector) {
+  return root instanceof Element ? readInputValue(root.querySelector(selector)) : '';
+}
+
 function getQueryParam(name) {
   return new URLSearchParams(window.location.search).get(name);
 }
@@ -44,12 +69,18 @@ async function apiFetch(path, options = {}) {
   try { body = await res.json(); } catch { body = {}; }
 
   if (!res.ok) {
-    const err = new Error(body.message || `Request failed (${res.status})`);
-    err.body = body;
-    err.status = res.status;
-    throw err;
+    throw new ApiError(body.message || `Request failed (${res.status})`, body, res.status);
   }
   return body;
+}
+
+class ApiError extends Error {
+  constructor(message, body, status) {
+    super(message);
+    this.name = 'ApiError';
+    this.body = body;
+    this.status = status;
+  }
 }
 
 function setUserDisplay() {
@@ -148,7 +179,7 @@ function initHeaderEvents() {
     const input = document.getElementById(inputId);
     form?.addEventListener('submit', (e) => {
       e.preventDefault();
-      const query = input?.value?.trim();
+      const query = readInputValue(input).trim();
       window.location.href = `index.html${query ? `?search=${encodeURIComponent(query)}` : ''}#products`;
     });
   }
@@ -166,6 +197,7 @@ function initHeaderEvents() {
   }
 
   document.addEventListener('click', (e) => {
+    if (!(e.target instanceof Element)) return;
     const btn = e.target.closest('.add-cart-btn');
     if (!btn) return;
     const id = btn.dataset.id;
@@ -210,10 +242,10 @@ function renderProductCard(p) {
 }
 
 async function loadProducts(listNode, searchInput, category = 'all') {
-  const query = searchInput?.value?.trim().toLowerCase() || getQueryParam('search') || '';
+  const query = readInputValue(searchInput).trim().toLowerCase() || getQueryParam('search') || '';
   const categoryQuery = category !== 'all' ? `&category=${encodeURIComponent(category)}` : '';
-  const priceMin = document.getElementById('price-min-input')?.value;
-  const priceMax = document.getElementById('price-max-input')?.value;
+  const priceMin = readInputValue(document.getElementById('price-min-input'));
+  const priceMax = readInputValue(document.getElementById('price-max-input'));
   const priceQuery = `${priceMin ? `&priceMin=${encodeURIComponent(priceMin)}` : ''}${priceMax ? `&priceMax=${encodeURIComponent(priceMax)}` : ''}`;
   let products = [];
 
@@ -346,7 +378,7 @@ async function initIndexPage() {
   initFlashSale();
   initBestSellersCarousel();
   const searchInput = document.getElementById('search-input');
-  if (searchInput && getQueryParam('search')) searchInput.value = getQueryParam('search');
+  if (searchInput instanceof HTMLInputElement && getQueryParam('search')) searchInput.value = getQueryParam('search');
 
   const debounce = (fn, wait = 250) => {
     let t = null;
@@ -382,7 +414,7 @@ async function initWishlistButton(productId) {
   render();
 
   btn.addEventListener('click', async () => {
-    btn.disabled = true;
+    if (btn instanceof HTMLButtonElement) btn.disabled = true;
     try {
       if (isSaved) await apiFetch(`/api/wishlist/${encodeURIComponent(productId)}`, { method: 'DELETE' });
       else await apiFetch(`/api/wishlist/${encodeURIComponent(productId)}`, { method: 'POST' });
@@ -391,7 +423,7 @@ async function initWishlistButton(productId) {
     } catch (err) {
       alert(err.body?.message || err.message || 'Something went wrong.');
     } finally {
-      btn.disabled = false;
+      if (btn instanceof HTMLButtonElement) btn.disabled = false;
     }
   });
 }
@@ -444,6 +476,7 @@ async function initProductReviews(productId) {
     starButtons.forEach(star => {
       star.addEventListener('click', () => {
         const value = parseInt(star.dataset.value);
+        if (!(ratingInput instanceof HTMLInputElement)) return;
         ratingInput.value = value;
         starButtons.forEach(s => {
           s.classList.toggle('text-yellow-500', parseInt(s.dataset.value) <= value);
@@ -455,6 +488,7 @@ async function initProductReviews(productId) {
     container.querySelector('#review-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const status = container.querySelector('#review-form-status');
+      if (!(ratingInput instanceof HTMLInputElement)) return;
       if (!ratingInput.value) {
         status.textContent = 'Please select a star rating.';
         status.className = 'text-sm text-red-600';
@@ -463,7 +497,7 @@ async function initProductReviews(productId) {
       try {
         await apiFetch(`/api/products/${encodeURIComponent(productId)}/reviews`, {
           method: 'POST',
-          body: JSON.stringify({ rating: ratingInput.value, comment: e.target.querySelector('textarea[name="comment"]').value })
+          body: JSON.stringify({ rating: ratingInput.value, comment: readFieldValue(e.currentTarget, 'textarea[name="comment"]') })
         });
         await renderReviews();
       } catch (err) {
@@ -591,7 +625,10 @@ async function initCheckoutPage() {
   if (cartItems.length === 0) {
     itemsContainer.innerHTML = '<p class="text-sm text-gray-500">Your cart is empty.</p>';
     totalContainer.textContent = formatMoney(0);
-    if (form) { const btn = form.querySelector('button[type="submit"]'); if (btn) { btn.disabled = true; btn.classList.add('opacity-50', 'cursor-not-allowed'); } }
+    if (form) {
+      const btn = form.querySelector('button[type="submit"]');
+      if (btn instanceof HTMLButtonElement) { btn.disabled = true; btn.classList.add('opacity-50', 'cursor-not-allowed'); }
+    }
     return;
   }
 
@@ -631,7 +668,7 @@ async function initCheckoutPage() {
 
   document.getElementById('coupon-apply-button')?.addEventListener('click', async () => {
     const codeInput = document.getElementById('coupon-input');
-    const code = codeInput?.value?.trim();
+    const code = readInputValue(codeInput).trim();
     const couponStatus = document.getElementById('coupon-status');
     if (!code) return;
     try {
@@ -653,13 +690,13 @@ async function initCheckoutPage() {
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const submitBtn = form.querySelector('button[type="submit"]');
-    if (submitBtn) submitBtn.disabled = true;
+    if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = true;
     if (status) { status.textContent = 'Creating your order...'; status.className = 'mt-2 text-center text-sm font-medium text-blue-600'; }
 
-    const shippingAddress = document.getElementById('shipping-address')?.value?.trim() || '';
-    const shippingCity = document.getElementById('shipping-city')?.value?.trim() || '';
-    const shippingPhone = document.getElementById('shipping-phone')?.value?.trim() || '';
-    const paymentMethod = form.querySelector('input[name="paymentMethod"]:checked')?.value || 'MOMO';
+    const shippingAddress = readInputValue(document.getElementById('shipping-address')).trim();
+    const shippingCity = readInputValue(document.getElementById('shipping-city')).trim();
+    const shippingPhone = readInputValue(document.getElementById('shipping-phone')).trim();
+    const paymentMethod = readFieldValue(form, 'input[name="paymentMethod"]:checked') || 'MOMO';
 
     try {
       const checkoutResult = await apiFetch('/api/checkout', {
@@ -670,7 +707,7 @@ async function initCheckoutPage() {
       const paymentResult = await apiFetch('/api/payment/initiate', { method: 'POST', body: JSON.stringify({ orderId: checkoutResult.order.id, paymentMethod }) });
       window.location.href = paymentResult.paymentUrl;
     } catch (err) {
-      if (submitBtn) submitBtn.disabled = false;
+      if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = false;
       if (status) {
         if (err.body?.outOfStock?.length) {
           const list = err.body.outOfStock.map(i => `${escapeHtml(i.name)} (only ${i.available} left, you asked for ${i.requested})`).join(', ');
@@ -695,10 +732,10 @@ async function loadOrderHistory() {
       <div class="border-b border-slate-100 py-4 last:border-0">
         <div class="flex justify-between items-center">
           <p class="text-sm font-semibold text-slate-900">Order #${o.id.slice(0, 10)}...</p>
-          <span class="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-700">${o.status}</span>
+          <span class="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-700">${escapeHtml(o.status)}</span>
         </div>
         <p class="text-xs text-slate-500 mt-1">${new Date(o.createdAt).toLocaleDateString()} — ${formatMoney(o.totalAmount)}</p>
-        <p class="text-xs text-slate-400 mt-1">${o.items.map(i => `${i.product?.name || 'Item'} x${i.quantity}`).join(', ')}</p>
+        <p class="text-xs text-slate-400 mt-1">${o.items.map(i => `${escapeHtml(i.product?.name || 'Item')} x${Number(i.quantity) || 0}`).join(', ')}</p>
       </div>
     `).join('');
   } catch (error) {
@@ -748,9 +785,10 @@ async function initAccountPage() {
 
   document.getElementById('login-form')?.addEventListener('submit', async event => {
     event.preventDefault();
-    const form = event.target;
-    const email = form.querySelector('input[name="email"]').value;
-    const password = form.querySelector('input[name="password"]').value;
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement)) return;
+    const email = readFieldValue(form, 'input[name="email"]');
+    const password = readFieldValue(form, 'input[name="password"]');
     try {
       const result = await apiFetch('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
       setAuth(result);
@@ -760,10 +798,11 @@ async function initAccountPage() {
 
   document.getElementById('signup-form')?.addEventListener('submit', async event => {
     event.preventDefault();
-    const form = event.target;
-    const fullName = form.querySelector('input[name="fullName"]').value;
-    const email = form.querySelector('input[name="email"]').value;
-    const password = form.querySelector('input[name="password"]').value;
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement)) return;
+    const fullName = readFieldValue(form, 'input[name="fullName"]');
+    const email = readFieldValue(form, 'input[name="email"]');
+    const password = readFieldValue(form, 'input[name="password"]');
     try {
       const result = await apiFetch('/api/auth/register', { method: 'POST', body: JSON.stringify({ fullName, email, password }) });
       setAuth(result);
@@ -775,18 +814,19 @@ async function initAccountPage() {
   document.getElementById('forgot-password-toggle')?.addEventListener('click', () => forgotForm?.classList.toggle('hidden'));
   forgotForm?.addEventListener('submit', async event => {
     event.preventDefault();
-    const form = event.target;
-    const email = form.querySelector('input[name="email"]').value;
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement)) return;
+    const email = readFieldValue(form, 'input[name="email"]');
     const status = document.getElementById('forgot-password-status');
     const submitBtn = form.querySelector('button[type="submit"]');
-    if (submitBtn) submitBtn.disabled = true;
+    if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = true;
     try {
       const result = await apiFetch('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) });
       if (status) { status.textContent = result.message || 'If that email is registered, a reset link has been sent.'; status.className = 'text-sm text-center text-green-600'; }
     } catch (err) {
       if (status) { status.textContent = err.body?.message || err.message || 'Something went wrong. Try again.'; status.className = 'text-sm text-center text-red-600'; }
     } finally {
-      if (submitBtn) submitBtn.disabled = false;
+      if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = false;
     }
   });
 

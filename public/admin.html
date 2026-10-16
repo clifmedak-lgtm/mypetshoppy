@@ -125,12 +125,15 @@
     <script>
         const API_URL = window.location.origin;
         const AVATAR_COLORS = ['bg-rose-100 text-rose-700', 'bg-emerald-100 text-emerald-700', 'bg-amber-100 text-amber-700', 'bg-cyan-100 text-cyan-700', 'bg-indigo-100 text-indigo-700', 'bg-pink-100 text-pink-700'];
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+        }
         function avatarFor(name) {
             const initial = (name || '?').trim().charAt(0).toUpperCase();
             const color = AVATAR_COLORS[(name || '').length % AVATAR_COLORS.length];
-            return `<div class="avatar h-11 w-11 text-sm ${color}">${initial}</div>`;
+            return `<div class="avatar h-11 w-11 text-sm ${color}">${escapeHtml(initial)}</div>`;
         }
-        function pill(text, color) { return `<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-${color}-50 text-${color}-700">${text}</span>`; }
+        function pill(text, color) { return `<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-${color}-50 text-${color}-700">${escapeHtml(text)}</span>`; }
 
         function authHeaders(json = false) {
             const token = localStorage.getItem('admin-token');
@@ -181,7 +184,7 @@
             document.getElementById('admin-customers-list').innerHTML = (customers || []).map(c => `
                 <div class="p-4 flex items-center gap-4 row-hover transition">
                     ${avatarFor(c.fullName)}
-                    <div class="min-w-0 flex-1"><p class="font-semibold text-slate-900 truncate">${c.fullName}</p><p class="text-sm text-slate-500 truncate">${c.email} — joined ${new Date(c.createdAt).toLocaleDateString()}</p></div>
+                    <div class="min-w-0 flex-1"><p class="font-semibold text-slate-900 truncate">${escapeHtml(c.fullName)}</p><p class="text-sm text-slate-500 truncate">${escapeHtml(c.email)} — joined ${new Date(c.createdAt).toLocaleDateString()}</p></div>
                     <div class="text-right flex-shrink-0"><p class="font-semibold text-slate-900">${c.totalSpent.toLocaleString()} CFA</p><p class="text-xs text-slate-500">${c.orderCount} order${c.orderCount === 1 ? '' : 's'}</p></div>
                 </div>`).join('') || '<p class="p-6 text-slate-500 text-center">No customers yet.</p>';
         }
@@ -210,17 +213,17 @@
                         <div class="flex items-center gap-4 min-w-0">
                             ${avatarFor(v.businessName || v.fullName)}
                             <div class="min-w-0">
-                                <p class="font-semibold text-slate-900 truncate">${v.businessName || v.fullName}</p>
-                                <p class="text-sm text-slate-500 truncate">${v.fullName} — ${v.email}</p>
+                                <p class="font-semibold text-slate-900 truncate">${escapeHtml(v.businessName || v.fullName)}</p>
+                                <p class="text-sm text-slate-500 truncate">${escapeHtml(v.fullName)} — ${escapeHtml(v.email)}</p>
                                 <p class="text-sm text-slate-500 mt-0.5">${v.productCount} listings — earned ${v.totalEarned.toLocaleString()} CFA — paid out ${v.totalPaidOut.toLocaleString()} CFA</p>
-                                ${v.momoPhone ? `<p class="text-xs text-slate-400 mt-0.5">📱 ${v.momoProvider === 'MTN' ? 'MTN' : 'Orange'} Money: ${v.momoPhone}</p>` : `<p class="text-xs text-amber-500 mt-0.5">⚠️ No Mobile Money number registered yet</p>`}
+                                ${v.momoPhone ? `<p class="text-xs text-slate-400 mt-0.5">📱 ${v.momoProvider === 'MTN' ? 'MTN' : 'Orange'} Money: ${escapeHtml(v.momoPhone)}</p>` : `<p class="text-xs text-amber-500 mt-0.5">⚠️ No Mobile Money number registered yet</p>`}
                             </div>
                         </div>
                         <div class="text-right flex-shrink-0">
                             <p class="text-lg font-bold ${v.balance > 0 ? 'text-amber-600' : 'text-slate-400'}">${v.balance.toLocaleString()} CFA owed</p>
                             <div class="flex flex-col items-end gap-0.5 mt-1">
                                 ${v.momoPhone ? `<button onclick="sendRealPayout('${v.id}', ${v.balance})" class="text-sm text-emerald-600 hover:underline font-medium">Send via Mobile Money</button>` : ''}
-                                <button onclick="openPayoutForm('${v.id}', '${(v.businessName || v.fullName).replace(/'/g, "\\'")}', ${v.balance})" class="text-sm text-blue-600 hover:underline font-medium">Record payout manually</button>
+                                <button onclick="openPayoutForm('${v.id}', decodeURIComponent('${encodeURIComponent(v.businessName || v.fullName)}'), ${Number(v.balance) || 0})" class="text-sm text-blue-600 hover:underline font-medium">Record payout manually</button>
                             </div>
                         </div>
                     </div>
@@ -272,8 +275,8 @@
             const products = await readJson(res);
             document.getElementById('admin-products-list').innerHTML = (products || []).map(p => `
                 <div class="p-4 flex items-center gap-4 row-hover transition">
-                    ${p.image ? `<img src="${p.image}" class="h-11 w-11 rounded-xl object-cover flex-shrink-0" onerror="this.outerHTML='${avatarFor(p.name).replace(/'/g, "\\'")}'">` : avatarFor(p.name)}
-                    <div class="min-w-0 flex-1"><p class="font-semibold text-slate-900 truncate">${p.name}</p><p class="text-sm text-slate-500">${p.vendor} — ${Number(p.price).toLocaleString()} CFA</p></div>
+                    ${p.image ? `<img src="${escapeHtml(p.image)}" class="h-11 w-11 rounded-xl object-cover flex-shrink-0" onerror="this.style.display='none'">` : avatarFor(p.name)}
+                    <div class="min-w-0 flex-1"><p class="font-semibold text-slate-900 truncate">${escapeHtml(p.name)}</p><p class="text-sm text-slate-500">${escapeHtml(p.vendor)} — ${Number(p.price).toLocaleString()} CFA</p></div>
                     ${p.stock > 0 ? pill(`${p.stock} available`, 'emerald') : pill('Sold out', 'red')}
                     <button onclick="deleteAdminProduct('${p.id}')" class="text-red-600 hover:underline text-sm flex-shrink-0 ml-2">Delete</button>
                 </div>`).join('') || '<p class="p-6 text-slate-500 text-center">No listings found.</p>';
@@ -292,17 +295,17 @@
             document.getElementById('admin-orders-list').innerHTML = (orders || []).map(o => `
                 <div class="bg-white p-5 rounded-2xl border border-slate-100">
                     <div class="flex flex-wrap justify-between gap-2">
-                        <div><p class="font-semibold text-slate-900">${o.customerName} <span class="text-slate-400 font-normal text-sm">(${o.customerEmail})</span></p><p class="text-xs text-slate-500">${new Date(o.createdAt).toLocaleString()}</p></div>
+                        <div><p class="font-semibold text-slate-900">${escapeHtml(o.customerName)} <span class="text-slate-400 font-normal text-sm">(${escapeHtml(o.customerEmail)})</span></p><p class="text-xs text-slate-500">${new Date(o.createdAt).toLocaleString()}</p></div>
                         <div class="text-right">${pill(o.status, o.paymentStatus === 'PAID' ? 'emerald' : 'slate')}</div>
                     </div>
-                    <div class="text-sm text-slate-600 mt-3">${o.items.map(i => `${i.productName} x${i.quantity}`).join(', ')}</div>
+                    <div class="text-sm text-slate-600 mt-3">${o.items.map(i => `${escapeHtml(i.productName)} x${i.quantity}`).join(', ')}</div>
                     <div class="text-sm mt-2 flex flex-wrap gap-4 text-slate-600">
                         <span>Subtotal: ${o.itemsSubtotal.toLocaleString()} CFA</span>
                         <span>Delivery: ${o.deliveryFee.toLocaleString()} CFA</span>
-                        ${o.couponCode ? `<span class="text-emerald-600">Coupon ${o.couponCode}: -${o.discountAmount.toLocaleString()} CFA</span>` : ''}
+                        ${o.couponCode ? `<span class="text-emerald-600">Coupon ${escapeHtml(o.couponCode)}: -${o.discountAmount.toLocaleString()} CFA</span>` : ''}
                         <span class="font-bold text-slate-900">Total: ${o.totalAmount.toLocaleString()} CFA</span>
                     </div>
-                    ${o.paymentReference ? `<p class="text-xs text-slate-400 mt-2">Ref: ${o.paymentReference} (${o.paymentProvider || 'n/a'})</p>` : ''}
+                    ${o.paymentReference ? `<p class="text-xs text-slate-400 mt-2">Ref: ${escapeHtml(o.paymentReference)} (${escapeHtml(o.paymentProvider || 'n/a')})</p>` : ''}
                 </div>`).join('') || '<p class="text-slate-500 text-center py-6">No orders yet.</p>';
         }
 
@@ -317,9 +320,9 @@
                 <div class="p-4 flex justify-between items-center gap-4 row-hover transition">
                     <div class="flex items-center gap-4">
                         <div class="avatar h-11 w-11 text-sm bg-rose-100 text-rose-700">%</div>
-                        <div><p class="font-semibold text-slate-900 flex items-center gap-2">${c.code} ${statusPill}</p><p class="text-sm text-slate-500">${discount} off — used ${c.usesCount}${c.maxUses ? `/${c.maxUses}` : ''} — min order ${c.minOrderAmount.toLocaleString()} CFA${c.expiresAt ? ` — expires ${new Date(c.expiresAt).toLocaleDateString()}` : ''}</p></div>
+                        <div><p class="font-semibold text-slate-900 flex items-center gap-2">${escapeHtml(c.code)} ${statusPill}</p><p class="text-sm text-slate-500">${discount} off — used ${c.usesCount}${c.maxUses ? `/${c.maxUses}` : ''} — min order ${c.minOrderAmount.toLocaleString()} CFA${c.expiresAt ? ` — expires ${new Date(c.expiresAt).toLocaleDateString()}` : ''}</p></div>
                     </div>
-                    <button onclick="toggleCoupon('${c.code}')" class="text-sm text-blue-600 hover:underline flex-shrink-0 font-medium">${c.active ? 'Deactivate' : 'Activate'}</button>
+                    <button onclick="toggleCoupon(decodeURIComponent('${encodeURIComponent(c.code)}'))" class="text-sm text-blue-600 hover:underline flex-shrink-0 font-medium">${c.active ? 'Deactivate' : 'Activate'}</button>
                 </div>`;
             }).join('') || '<p class="p-6 text-slate-500 text-center">No coupons yet.</p>';
         }
@@ -344,7 +347,7 @@
         }
 
         async function toggleCoupon(code) {
-            const res = await fetch(`${API_URL}/api/admin/coupons/${code}/toggle`, { method: 'PUT', headers: authHeaders() });
+            const res = await fetch(`${API_URL}/api/admin/coupons/${encodeURIComponent(code)}/toggle`, { method: 'PUT', headers: authHeaders() });
             if (res.ok) loadCoupons();
         }
 

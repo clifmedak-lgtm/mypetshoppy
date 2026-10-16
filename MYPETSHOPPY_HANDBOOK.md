@@ -98,7 +98,7 @@ cannot create a paid order.
 
 ## 5. Environment variables
 
-See `.env.example` for the full annotated list. Minimum to run:
+See `_env.example` for the full annotated list. Minimum to run:
 `DATABASE_URL`, `APP_URL`, `ADMIN_SECRET`, `NOTCHPAY_PUBLIC_KEY`.
 
 Add `NOTCHPAY_PRIVATE_KEY` for real payouts (also requires IP whitelisting at

@@ -62,10 +62,14 @@ async function deleteProduct(productId) {
   const product = await prisma.product.findUnique({ where: { id: productId } });
   if (!product) return console.log(`No listing found with id ${productId}`);
 
-  const orderItemCount = await prisma.orderItem.count({ where: { productId } });
-  if (orderItemCount > 0) {
-    console.log(`Cannot delete "${product.name}": it appears in ${orderItemCount} order(s).`);
-    console.log('Deleting it would corrupt real order history. Set its stock to 0 instead.');
+  const [orderItemCount, wishlistCount, reviewCount] = await Promise.all([
+    prisma.orderItem.count({ where: { productId } }),
+    prisma.wishlistItem.count({ where: { productId } }),
+    prisma.review.count({ where: { productId } }),
+  ]);
+  if (orderItemCount || wishlistCount || reviewCount) {
+    console.log(`Cannot delete "${product.name}": it is referenced by ${orderItemCount} order item(s), ${wishlistCount} wishlist(s), and ${reviewCount} review(s).`);
+    console.log('Deleting it would break customer history. Set its stock to 0 instead.');
     return;
   }
 
@@ -74,7 +78,15 @@ async function deleteProduct(productId) {
 }
 
 async function createCoupon(code, type, value, maxUses, minOrderAmount, expiresInDays) {
-  if (!code || !type || !value) {
+  const discountValue = Number(value);
+  const maxUsesNum = maxUses ? Number(maxUses) : null;
+  const minOrderNum = minOrderAmount ? Number(minOrderAmount) : 0;
+  const expiresInDaysNum = expiresInDays ? Number(expiresInDays) : null;
+  if (!code || !/^[A-Z0-9_-]{2,32}$/i.test(code.trim()) || !Number.isSafeInteger(discountValue) || discountValue < 1
+    || (type?.toLowerCase() === 'percent' && discountValue > 100)
+    || (maxUsesNum !== null && (!Number.isSafeInteger(maxUsesNum) || maxUsesNum < 1))
+    || !Number.isSafeInteger(minOrderNum) || minOrderNum < 0
+    || (expiresInDaysNum !== null && (!Number.isSafeInteger(expiresInDaysNum) || expiresInDaysNum < 1))) {
     console.log('Usage: node admin-tools.mjs create-coupon <CODE> <percent|fixed> <value> [maxUses] [minOrderAmount] [expiresInDays]');
     console.log('  node admin-tools.mjs create-coupon WELCOME10 percent 10 100 0 30');
     console.log('  node admin-tools.mjs create-coupon SAVE2000 fixed 2000');
@@ -85,10 +97,10 @@ async function createCoupon(code, type, value, maxUses, minOrderAmount, expiresI
 
   const coupon = await prisma.coupon.create({
     data: {
-      code: code.trim().toUpperCase(), discountType, discountValue: parseInt(value),
-      maxUses: maxUses ? parseInt(maxUses) : null,
-      minOrderAmount: minOrderAmount ? parseInt(minOrderAmount) : 0,
-      expiresAt: expiresInDays ? new Date(Date.now() + parseInt(expiresInDays) * 24 * 60 * 60 * 1000) : null,
+      code: code.trim().toUpperCase(), discountType, discountValue,
+      maxUses: maxUsesNum,
+      minOrderAmount: minOrderNum,
+      expiresAt: expiresInDaysNum ? new Date(Date.now() + expiresInDaysNum * 24 * 60 * 60 * 1000) : null,
     }
   });
   console.log(`Created coupon ${coupon.code}: ${discountType === 'PERCENT' ? coupon.discountValue + '%' : coupon.discountValue + ' CFA'} off.`);
